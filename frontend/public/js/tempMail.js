@@ -68,10 +68,7 @@ const tempMail = {
 
         document.getElementById('domainSelect').addEventListener('change', (e) => {
             this.currentDomain = e.target.value;
-            if (this.currentEmail) {
-                // regenerate with new domain
-                this.generateNewEmail(this.currentDomain);
-            }
+            this.generateNewEmail(this.currentDomain);
         });
     },
 
