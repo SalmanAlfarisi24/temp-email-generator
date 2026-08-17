@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../config');
+const EmailnatorClient = require('./emailnator.client');
 
 const ONE_SEC_BASE_URL = config.tempMailBaseUrl || 'https://www.1secmail.com/api/v1/';
 const GUERRILLA_BASE_URL = config.guerrillaBaseUrl || 'https://api.guerrillamail.com/ajax.php';
@@ -34,7 +35,8 @@ function splitEmail(email) {
 }
 
 function normalizeDomain(domain) {
-  const value = String(domain || '').trim().toLowerCase();
+  let value = String(domain || '').trim().toLowerCase();
+  value = value.replace(' (emailnator)', '');
   if (!value) return '';
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) {
     throw makeStatusError('Format domain tidak valid', 400);
@@ -69,6 +71,7 @@ function normalizeGuerrillaMessage(message) {
 class TempMailService {
   constructor() {
     this.lastGuerrillaSession = null;
+    this.emailnator = new EmailnatorClient();
   }
 
   async getDomains() {
@@ -87,9 +90,21 @@ class TempMailService {
       errors.push(`1secmail: ${error.message}`);
     }
 
-    // Guerrilla fallback domain statis; tidak membuat inbox hanya untuk daftar domain.
+    let domains = [];
+    if (errors.length === 0) {
+        domains = response?.data || [];
+    }
+    
+    // Inject Emailnator as the primary option
+    domains.unshift('gmail.com (Emailnator)');
+
+    if (domains.length > 1) {
+      return domains;
+    }
+
+    // Guerrilla fallback domain statis;
     if (errors.length) {
-      return Array.from(GUERRILLA_DOMAINS);
+      return ['gmail.com (Emailnator)', ...Array.from(GUERRILLA_DOMAINS)];
     }
 
     const err = new Error(`Gagal fetch domain provider temp mail (${errors.join('; ')})`);
@@ -100,6 +115,15 @@ class TempMailService {
   async generateEmail(domainInput) {
     const domain = normalizeDomain(domainInput);
     const errors = [];
+
+    if (domainInput === 'gmail.com (Emailnator)' || domain === 'gmail.com') {
+      try {
+        const result = await this.emailnator.generateEmail(['plusGmail', 'dotGmail']);
+        return { email: result.email, domain: 'gmail.com', provider: 'emailnator' };
+      } catch (err) {
+        errors.push(`emailnator: ${err.message}`);
+      }
+    }
 
     if (domain && GUERRILLA_DOMAINS.has(domain)) {
       return this.generateGuerrillaEmail();
@@ -166,6 +190,24 @@ class TempMailService {
   async getInbox(email) {
     const { login, domain } = splitEmail(email);
     const errors = [];
+    
+    if (domain === 'gmail.com' || (this.emailnator.currentEmail && this.emailnator.currentEmail.toLowerCase() === email.toLowerCase())) {
+      try {
+        const result = await this.emailnator.getMessageList(email);
+        return result.messages.map(msg => ({
+          id: msg.messageID || msg.id || Math.random().toString(),
+          from: msg.from || 'Unknown',
+          subject: msg.subject || '(no subject)',
+          date: msg.time || msg.date || '',
+          body: msg.content || msg.body || msg.excerpt || '',
+          source: 'emailnator',
+          raw: msg
+        }));
+      } catch (err) {
+        errors.push(`emailnator: ${err.message}`);
+      }
+    }
+
     const useGuerrilla =
       GUERRILLA_DOMAINS.has(domain) ||
       this.lastGuerrillaSession?.email === email.toLowerCase();
