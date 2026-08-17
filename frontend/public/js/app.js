@@ -1,4 +1,5 @@
-const socket = typeof io !== 'undefined' ? io() : null;
+window.socket = typeof io !== 'undefined' ? io() : null;
+const socket = window.socket;
 
 // DOM Elements
 const socketStatus = document.getElementById('socketStatus');
