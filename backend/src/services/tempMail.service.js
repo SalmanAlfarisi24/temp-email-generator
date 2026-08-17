@@ -75,8 +75,10 @@ class TempMailService {
   }
 
   async getDomains() {
-    const errors = [];
-    let domains = [];
+    const allDomains = new Set();
+    
+    // Inject Emailnator as the primary option
+    allDomains.add('gmail.com (Emailnator)');
 
     try {
       const response = await axios.get(ONE_SEC_BASE_URL, {
@@ -84,23 +86,15 @@ class TempMailService {
         timeout: 10000,
       });
       if (Array.isArray(response.data) && response.data.length) {
-        domains = response.data;
-      } else {
-        errors.push('1secmail: daftar domain kosong');
+        response.data.forEach(d => allDomains.add(d));
       }
     } catch (error) {
-      errors.push(`1secmail: ${error.message}`);
+      // silent fallback
     }
 
-    // Emailnator dijadikan opsi utama di frontend.
-    domains.unshift('gmail.com (Emailnator)');
+    GUERRILLA_DOMAINS.forEach(d => allDomains.add(d));
 
-    // 1secmail mati / kosong → tambahkan domain statis Guerrilla.
-    if (domains.length === 1) {
-      return ['gmail.com (Emailnator)', ...Array.from(GUERRILLA_DOMAINS)];
-    }
-
-    return domains;
+    return Array.from(allDomains);
   }
 
   async generateEmail(domainInput) {

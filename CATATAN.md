@@ -112,8 +112,8 @@ temp-email-generator/
 - [ ] **`generateWithFallback()`** pilih domain pertama tanpa `( … )`; kalau source `getDomains()` berupa domain list user, fallback mengubah provider asal.
 - [ ] **`generateWithFallback()`** sering `errors` diisi 1secmail; pastikan tidak pernah double-throw / promise rejected tanpa pesan.
 - [ ] **XSS test nyata**: email dengan `<script>`/`onerror` harus tampil polos (render sudah DOM, tapi belum diuji live).
-- [ ] **Race double-click** Generate bisa bikin 2 email beda — belum ada lock/disable tombol.
-- [ ] **Frontend polling** berjalan terus walau tab alias aktif (boros request ke 1secmail tiap 30 detik — pertimbangkan pause saat tab alias).
+- [x] **Race double-click** sudah: `btn.disabled` + `if (btn.disabled) return` di `generateNewEmail`.
+- [x] **Frontend polling tab-aware** sudah: hanya refresh saat `#tab-temp.active`.
 - [ ] **Rate limit**: 1secmail/Guerrilla public — request sering kemungkinan dibatasi/injur. Belum ada throttling delay antar refresh.
 - [ ] **Socket subscribe tidak dibatasi** — siapa pun bisa subscribe email tertentu (deploy publik perlu revisi).
 - [ ] **Port 3000** konflik kalau proses node lain pakai.
