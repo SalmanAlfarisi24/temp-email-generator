@@ -221,6 +221,9 @@ header h1 .sub {
   cursor: pointer;
   outline: none;
   transition: var(--transition);
+  max-width: 300px;
+  width: 100%;
+  overflow-y: auto;
 }
 
 .domain-selector select:focus { border-color: var(--primary); }

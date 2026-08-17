@@ -31,3 +31,4 @@ dist/
 build/
 .vercel
 .env*
+!.env.example

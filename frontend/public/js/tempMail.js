@@ -31,16 +31,33 @@ const tempMail = {
     populateDomainSelector() {
         const select = document.getElementById('domainSelect');
         select.innerHTML = '';
+        
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- Pilih domain --';
+        defaultOpt.disabled = true;
+        select.appendChild(defaultOpt);
+
         this.domainList.forEach(domain => {
             const opt = document.createElement('option');
             opt.value = domain;
-            opt.textContent = domain;
+            let label = domain;
+            if (domain.includes('(Emailnator)')) label = '📧 ' + domain;
+            else if (domain.includes('sharklasers')) label = '🦈 ' + domain;
+            else if (domain.includes('guerrilla')) label = '🎯 ' + domain;
+            else label = '📬 ' + domain;
+            opt.textContent = label;
             select.appendChild(opt);
         });
+
         // set default
-        if (this.domainList.length) {
+        if (this.currentDomain && this.domainList.includes(this.currentDomain)) {
+            select.value = this.currentDomain;
+        } else if (this.domainList.length) {
             this.currentDomain = this.domainList[0];
             select.value = this.currentDomain;
+        } else {
+            select.value = '';
         }
     },
 
@@ -125,7 +142,7 @@ const tempMail = {
         })
         .catch(err => {
             console.error('Generate error:', err);
-            alert('Gagal generate email: ' + err.message);
+            alert('Gagal generate email: ' + err.message + '. Coba pilih domain lain.');
         })
         .finally(() => {
             btn.disabled = false;
