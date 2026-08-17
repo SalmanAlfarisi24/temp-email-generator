@@ -76,6 +76,7 @@ class TempMailService {
 
   async getDomains() {
     const errors = [];
+    let domains = [];
 
     try {
       const response = await axios.get(ONE_SEC_BASE_URL, {
@@ -83,33 +84,23 @@ class TempMailService {
         timeout: 10000,
       });
       if (Array.isArray(response.data) && response.data.length) {
-        return response.data;
+        domains = response.data;
+      } else {
+        errors.push('1secmail: daftar domain kosong');
       }
-      errors.push('1secmail: daftar domain kosong');
     } catch (error) {
       errors.push(`1secmail: ${error.message}`);
     }
 
-    let domains = [];
-    if (errors.length === 0) {
-        domains = response?.data || [];
-    }
-    
-    // Inject Emailnator as the primary option
+    // Emailnator dijadikan opsi utama di frontend.
     domains.unshift('gmail.com (Emailnator)');
 
-    if (domains.length > 1) {
-      return domains;
-    }
-
-    // Guerrilla fallback domain statis;
-    if (errors.length) {
+    // 1secmail mati / kosong → tambahkan domain statis Guerrilla.
+    if (domains.length === 1) {
       return ['gmail.com (Emailnator)', ...Array.from(GUERRILLA_DOMAINS)];
     }
 
-    const err = new Error(`Gagal fetch domain provider temp mail (${errors.join('; ')})`);
-    err.status = 502;
-    throw err;
+    return domains;
   }
 
   async generateEmail(domainInput) {
@@ -278,7 +269,7 @@ class TempMailService {
 
   async generateWithFallback(domainList) {
     const domains = Array.isArray(domainList) ? domainList : await this.getDomains();
-    const fallbackDomain = domains.find(d => d.includes('1secmail')) || domains[0];
+    const fallbackDomain = domains.find(d => !d.includes('(')) || domains[0];
     return this.generateEmail(fallbackDomain);
   }
 }

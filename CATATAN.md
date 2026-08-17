@@ -9,8 +9,9 @@ File ini = memory singkat: struktur, alur system, yang sudah diperbaiki, dan yan
 Web app temp email generator + custom alias.
 - Backend: Node.js + Express 4 + Socket.IO
 - Frontend: HTML/CSS/vanilla JS (no framework)
-- Provider email sementara: **1secmail.com** (primary) + **Guerrilla Mail** (fallback)
+- Provider email sementara: **1secmail.com** (primary) + **Guerrilla Mail** (fallback) + **Emailnator** (opsi `gmail.com (Emailnator)`)
 - Alias: mode lokal (persist file JSON) + integrasi opsional ForwardEmail.net
+- Deploy: Vercel supported (`process.env.VERCEL === '1'` → data di `/tmp`, ephemeral)
 
 ---
 
@@ -36,8 +37,9 @@ temp-email-generator/
 │       │   ├── tempMail.controller.js
 │       │   └── alias.controller.js
 │       ├── services/
-│       │   ├── tempMail.service.js  ← multi-provider (1secmail + guerrilla)
-│       │   └── alias.service.js     ← validasi + persist JSON
+│       │   ├── tempMail.service.js  ← multi-provider (1secmail + guerrilla + emailnator)
+│       │   ├── emailnator.client.js ← client emailnator.com (UNVERIFIED spec)
+│       │   └── alias.service.js     ← validasi + persist JSON + Vercel /tmp
 │       └── sockets/
 │           └── email.socket.js      ← status koneksi + subscribe-email
 └── frontend/public/
@@ -57,10 +59,11 @@ temp-email-generator/
 1. Frontend `loadDomains()` → `GET /api/temp-mail/domains` → backend minta `getDomainList` ke 1secmail.
 2. User klik Generate → `POST /api/temp-mail/generate`.
    - Tanpa domain: pilih domain pertama 1secmail → buat login acak.
+   - Domain `gmail.com (Emailnator)` → `POST /generate` Emailnator (`plusGmail`+`dotGmail`).
    - Domain = domain Guerrilla → panggil `get_email_address` Guerrilla (perlu token session).
-   - 1secmail down → fallback Guerrilla.
-3. Email tampil → frontend subscribe socket `subscribe-email` + mulai polling `POST /api/temp-mail/inbox` tiap 30 detik.
-4. Backend `getInbox()`: kalau domain Guerrilla → `check_email` (butuh session); kalau bukan → `getMessages` + `readMessage` 1secmail.
+   - 1secmail down → fallback Guerrilla; `generateWithFallback` pakai domain tanpa `( … )`.
+3. Email tampil → frontend subscribe socket `subscribe-email` + mulai polling `POST /api/temp-mail/inbox` tiap 30 detik (pause saat tab alias aktif).
+4. Backend `getInbox()`: kalau `gmail.com`/emailnator → `getMessageList` emailnator; domain Guerrilla → `check_email` (butuh session); bukan → `getMessages` + `readMessage` 1secmail.
 5. Pesan di-normalisasi → `{ id, from, subject, date, body, source }` → frontend render via **DOM + textContent** (anti XSS).
 
 ### Custom Alias
@@ -84,7 +87,7 @@ temp-email-generator/
 
 | Area | Perbaikan |
 |---|---|
-| Provider | temp-mail.org (mati) → 1secmail primary + Guerrilla fallback |
+| Provider | temp-mail.org (mati) → 1secmail primary + Guerrilla fallback + Emailnator (gmail.com) |
 | XSS | renderInbox & renderAliases pindah dari `innerHTML` → DOM `textContent` |
 | Alias | persist ke JSON, validasi input, duplicate 409, delete 404, rollback file |
 | alias save | `saveAliases()` throw saat gagal tulis (bukan diam-diam sukses) |
@@ -104,7 +107,9 @@ temp-email-generator/
 
 - [ ] **Uji inbox real**: generate alamat 1secmail, kirim email test, pastikan `getMessages`+`readMessage` mengembalikan body.
 - [ ] **Uji Guerrilla inbox**: `get_email_address` → `check_email`. Session hanya hidup selama proses backend jalan (restart = session hilang).
-- [ ] **`getDomains()` behavior aneh**: kalau 1secmail gagal, backend balas list domain Guerrilla statis. Cek apakah fallback itu diinginkan.
+- [ ] **Emailnator UNVERIFIED**: `POST /generate`, `GET /message` asumsi — harus diuji langsung `www.emailnator.com` (`emailnator.client.js`).
+- [ ] **`getDomains()` fallback**: kalau 1secmail gagal, list = `gmail.com (Emailnator)` + domain Guerrilla statis; entry emailnator selalu `unshift` → default domain select = Emailnator. Pastikan itu diinginkan.
+- [ ] **`generateWithFallback()`** pilih domain pertama tanpa `( … )`; kalau source `getDomains()` berupa domain list user, fallback mengubah provider asal.
 - [ ] **`generateWithFallback()`** sering `errors` diisi 1secmail; pastikan tidak pernah double-throw / promise rejected tanpa pesan.
 - [ ] **XSS test nyata**: email dengan `<script>`/`onerror` harus tampil polos (render sudah DOM, tapi belum diuji live).
 - [ ] **Race double-click** Generate bisa bikin 2 email beda — belum ada lock/disable tombol.
@@ -140,6 +145,8 @@ curl.exe -X POST -H "Content-Type: application/json" -d "{}" http://localhost:30
 - 1secmail: `getDomainList`, `getMessages?login=&domain=`, `readMessage?login=&domain=&id=`. Ambil login+domain dari alamat email. Tidak ada SMTP sendiri — alamat = `login@domain` valid selama domain ada di list.
 - Guerrilla: stateful (`sid_token`). `get_email_address` → simpan `sid_token`; `check_email?seq=0&sid_token=` baca inbox. **Session hilang saat server restart** — email Guerrilla tidak bisa di-fetch lagi setelah restart.
 - 1secmail umumnya bisa fetch inbox kapan saja (login+domain bebas) — tapi pastikan domain memang di list-nya.
+- Emailnator: payload `generate` = `["plusGmail","dotGmail"]` → variasi gmail (dot/plus) — spesifikasi endpoint TIDAK TERVERIFIKASI terhadap API nyata.
+- Vercel: `backend/data` → `/tmp` — alias hilang setiap deploy/restart. Untuk persistence permanen perlu penyimpanan eksternal (object storage).
 
 ---
 
