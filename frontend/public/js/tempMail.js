@@ -175,10 +175,10 @@ const tempMail = {
         }
 
         messages.forEach(msg => {
-            const from = msg.from || msg.sender || 'Unknown';
-            const subject = msg.subject || '(no subject)';
-            const body = msg.body || msg.text || '';
-            const time = msg.date || msg.timestamp || '';
+            const from = String(msg.from || msg.sender || 'Unknown');
+            const subject = String(msg.subject || '(no subject)');
+            const body = String(msg.body || msg.text || '');
+            const time = String(msg.date || msg.timestamp || '');
             const preview = body.length > 100 ? body.substring(0, 100) + '...' : body;
 
             const item = document.createElement('div');

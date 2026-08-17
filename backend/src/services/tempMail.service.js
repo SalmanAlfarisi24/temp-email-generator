@@ -16,14 +16,30 @@ const GUERRILLA_DOMAINS = new Set([
   'guerrillamail.de',
 ]);
 
+function makeStatusError(message, status) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
 function splitEmail(email) {
   if (!email || typeof email !== 'string' || !email.includes('@')) {
-    const err = new Error('Format email tidak valid');
-    err.status = 400;
-    throw err;
+    throw makeStatusError('Format email tidak valid', 400);
   }
   const [login, domain] = email.toLowerCase().split('@');
+  if (!login || !domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
+    throw makeStatusError('Format email tidak valid', 400);
+  }
   return { login, domain };
+}
+
+function normalizeDomain(domain) {
+  const value = String(domain || '').trim().toLowerCase();
+  if (!value) return '';
+  if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(value)) {
+    throw makeStatusError('Format domain tidak valid', 400);
+  }
+  return value;
 }
 
 function normalizeOneSecMessage(message) {
@@ -71,12 +87,9 @@ class TempMailService {
       errors.push(`1secmail: ${error.message}`);
     }
 
-    // Guerrilla tidak punya daftar domain stabil via endpoint simpel; pakai domain umum sebagai fallback.
-    try {
-      const account = await this.generateGuerrillaEmail();
-      return [account.domain];
-    } catch (error) {
-      errors.push(`guerrilla: ${error.message}`);
+    // Guerrilla fallback domain statis; tidak membuat inbox hanya untuk daftar domain.
+    if (errors.length) {
+      return Array.from(GUERRILLA_DOMAINS);
     }
 
     const err = new Error(`Gagal fetch domain provider temp mail (${errors.join('; ')})`);
@@ -84,10 +97,11 @@ class TempMailService {
     throw err;
   }
 
-  async generateEmail(domain) {
+  async generateEmail(domainInput) {
+    const domain = normalizeDomain(domainInput);
     const errors = [];
 
-    if (domain && GUERRILLA_DOMAINS.has(String(domain).toLowerCase())) {
+    if (domain && GUERRILLA_DOMAINS.has(domain)) {
       return this.generateGuerrillaEmail();
     }
 
@@ -112,11 +126,19 @@ class TempMailService {
       errors.push(`1secmail: ${error.message}`);
     }
 
-    // Kalau user memilih domain tertentu, 1secmail genRandomMailbox tidak menjamin domain itu.
-    // Fallback manual random pada domain pilihan tetap valid untuk 1secmail selama domain ada di provider.
+    // Kalau user memilih domain tertentu, pastikan domain memang didukung 1secmail sebelum membuat login acak.
     if (domain) {
-      const login = Math.random().toString(36).substring(2, 12);
-      return { email: `${login}@${domain}`, domain, provider: '1secmail' };
+      try {
+        const domains = await this.getDomains();
+        if (!domains.includes(domain)) {
+          throw makeStatusError(`Domain ${domain} tidak didukung provider temp mail`, 400);
+        }
+        const login = Math.random().toString(36).substring(2, 12);
+        return { email: `${login}@${domain}`, domain, provider: '1secmail' };
+      } catch (error) {
+        if (error.status === 400) throw error;
+        errors.push(`domain check: ${error.message}`);
+      }
     }
 
     // Guerrilla fallback

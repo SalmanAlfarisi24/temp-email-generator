@@ -51,6 +51,12 @@ npm run dev
 
 ## Konfigurasi
 
+Salin contoh env lalu sesuaikan:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
 `backend/.env`:
 
 ```env
