@@ -117,7 +117,7 @@ const tempMail = {
                 this.currentEmail = data.data.email;
                 document.getElementById('currentEmail').textContent = this.currentEmail;
                 document.getElementById('messageCount').textContent = '0';
-                if (socket && socket.connected) {
+                if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('subscribe-email', this.currentEmail);
                 }
                 this.startPolling();
