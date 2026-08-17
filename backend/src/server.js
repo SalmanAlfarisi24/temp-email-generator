@@ -58,6 +58,10 @@ app.use((err, req, res, next) => {
 // socket
 emailSocket(io);
 
-server.listen(PORT, () => {
-  console.log(`Neko X ready di http://localhost:${PORT} ><`);
-});
+if (process.env.VERCEL !== '1') {
+  server.listen(PORT, () => {
+    console.log(`Neko X ready di http://localhost:${PORT} ><`);
+  });
+}
+
+module.exports = app;
