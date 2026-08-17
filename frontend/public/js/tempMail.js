@@ -45,7 +45,9 @@ const tempMail = {
     },
 
     setupEventListeners() {
-        document.getElementById('generateBtn').addEventListener('click', () => {
+        const btn = document.getElementById('generateBtn');
+        btn.addEventListener('click', () => {
+            if (btn.disabled) return;
             this.generateNewEmail();
         });
 
@@ -100,6 +102,9 @@ const tempMail = {
     },
 
     generateNewEmail(domain) {
+        const btn = document.getElementById('generateBtn');
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
         const selectedDomain = domain || this.currentDomain || this.domainList[0];
         fetch('/api/temp-mail/generate', {
             method: 'POST',
@@ -124,6 +129,10 @@ const tempMail = {
         .catch(err => {
             console.error('Generate error:', err);
             alert('Gagal generate email: ' + err.message);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = 'Generate Baru';
         });
     },
 
@@ -131,7 +140,11 @@ const tempMail = {
         if (this.pollId) {
             clearInterval(this.pollId);
         }
-        this.pollId = setInterval(() => this.refreshInbox(), 30000);
+        this.pollId = setInterval(() => {
+            if (document.getElementById('tab-temp').classList.contains('active')) {
+                this.refreshInbox();
+            }
+        }, 30000);
     },
 
     refreshInbox() {

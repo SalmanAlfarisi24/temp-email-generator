@@ -1,0 +1,42 @@
+PS D:\Document\Project\temp-email-generator> ! curl.exe -s -m 15 -X POST -H "Content-Type: application/json" -d "{}" http://localhost:3000/api/temp-mail/generate && echo && curl.exe -s -m 15 http://localhost:3000/api/temp-mail/domains && echo && curl.exe -s -m 15 -X POST -H "Content-Type: application/json" -d "{\"domain\":\"mail.example.com\",\"prefix\":\"halo\",\"forwardTo\":\"kamu@gmail.com\"}" http://localhost:3000/api/alias/create && echo && curl.exe -s -m 15 "http://localhost:3000/api/alias/list?domain=mail.example.com" && echo
+At line:1 char:2
++ ! curl.exe -s -m 15 -X POST -H "Content-Type: application/json" -d "{ ...
++  ~
+Missing expression after unary operator '!'.
+At line:1 char:3
++ ! curl.exe -s -m 15 -X POST -H "Content-Type: application/json" -d "{ ...
++   ~~~~~~~~
+Unexpected token 'curl.exe' in expression or statement.
+At line:1 char:118
++ ... json" -d "{}" http://localhost:3000/api/temp-mail/generate && echo && ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:126
++ ...  "{}" http://localhost:3000/api/temp-mail/generate && echo && curl.ex ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:191
++ ... l.exe -s -m 15 http://localhost:3000/api/temp-mail/domains && echo && ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:199
++ ...  -m 15 http://localhost:3000/api/temp-mail/domains && echo && curl.ex ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:395
++ ... "kamu@gmail.com\"}" http://localhost:3000/api/alias/create && echo && ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:403
++ ... ail.com\"}" http://localhost:3000/api/alias/create && echo && curl.ex ...
++                                                                ~~
+The token '&&' is not a valid statement separator in this version.
+At line:1 char:487
++ ... http://localhost:3000/api/alias/list?domain=mail.example.com" && echo
++                                                                   ~~
+The token '&&' is not a valid statement separator in this version.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordExcept 
+   ion
+    + FullyQualifiedErrorId : MissingExpressionAfterOperator
+ 
+PS D:\Document\Project\temp-email-generator> 

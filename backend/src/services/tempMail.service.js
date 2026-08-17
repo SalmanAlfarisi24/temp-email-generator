@@ -105,52 +105,45 @@ class TempMailService {
       return this.generateGuerrillaEmail();
     }
 
-    // 1secmail primary
+    // 1secmail: ambil daftar domain, generate login lokal.
+    let oneSecDomains = [];
     try {
       const response = await axios.get(ONE_SEC_BASE_URL, {
-        params: {
-          action: 'genRandomMailbox',
-          count: 1,
-        },
+        params: { action: 'getDomainList' },
         timeout: 10000,
       });
-      const email = Array.isArray(response.data) ? response.data[0] : response.data?.email;
-      if (email && typeof email === 'string') {
-        const parsed = splitEmail(email);
-        if (!domain || parsed.domain === domain) {
-          return { email, domain: parsed.domain, provider: '1secmail' };
-        }
+      if (Array.isArray(response.data) && response.data.length) {
+        oneSecDomains = response.data;
       }
-      errors.push('1secmail: gagal membuat mailbox acak');
     } catch (error) {
       errors.push(`1secmail: ${error.message}`);
     }
 
-    // Kalau user memilih domain tertentu, pastikan domain memang didukung 1secmail sebelum membuat login acak.
-    if (domain) {
-      try {
-        const domains = await this.getDomains();
-        if (!domains.includes(domain)) {
-          throw makeStatusError(`Domain ${domain} tidak didukung provider temp mail`, 400);
-        }
-        const login = Math.random().toString(36).substring(2, 12);
-        return { email: `${login}@${domain}`, domain, provider: '1secmail' };
-      } catch (error) {
-        if (error.status === 400) throw error;
-        errors.push(`domain check: ${error.message}`);
+    if (oneSecDomains.length) {
+      let targetDomain = domain;
+      if (!targetDomain || !oneSecDomains.includes(targetDomain)) {
+        targetDomain = oneSecDomains[0];
       }
+      const login = Math.random().toString(36).substring(2, 12);
+      return {
+        email: `${login}@${targetDomain}`,
+        domain: targetDomain,
+        provider: '1secmail',
+      };
     }
 
-    // Guerrilla fallback
+    if (domain) {
+      throw makeStatusError(`Domain ${domain} tidak didukung provider temp mail`, 400);
+    }
+
+    // Guerrilla fallback ketika tidak ada domain spesifik.
     try {
       return await this.generateGuerrillaEmail();
     } catch (error) {
       errors.push(`guerrilla: ${error.message}`);
     }
 
-    const err = new Error(`Gagal generate email (${errors.join('; ')})`);
-    err.status = 502;
-    throw err;
+    throw makeStatusError(`Gagal generate email (${errors.join('; ')})`, 502);
   }
 
   async generateGuerrillaEmail() {
