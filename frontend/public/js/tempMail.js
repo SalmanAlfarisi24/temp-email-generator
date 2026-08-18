@@ -142,7 +142,7 @@ const tempMail = {
         })
         .catch(err => {
             console.error('Generate error:', err);
-            alert('❌ Gagal generate email: ' + err.message);
+            alert('❌ Gagal generate email: ' + err.message + '\n\nCoba pilih domain lain atau refresh halaman.');
         })
         .finally(() => {
             btn.disabled = false;

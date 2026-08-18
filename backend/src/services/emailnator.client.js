@@ -8,6 +8,24 @@ class EmailnatorClient {
     this.currentEmail = null;
   }
 
+  _extractCookies(response) {
+    const setCookie = response.headers['set-cookie'];
+    if (!setCookie) return;
+    const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
+    cookieArray.forEach(cookieStr => {
+      const parts = cookieStr.split(';')[0].split('=');
+      if (parts.length === 2) {
+        const existing = this.cookies.find(c => c.name === parts[0]);
+        if (existing) existing.value = parts[1];
+        else this.cookies.push({ name: parts[0], value: parts[1] });
+      }
+    });
+  }
+
+  _getCookieString() {
+    return this.cookies.map(c => `${c.name}=${c.value}`).join('; ');
+  }
+
   async _getXsrfToken() {
     try {
       const response = await axios.get(this.baseUrl, {
@@ -19,29 +37,13 @@ class EmailnatorClient {
         },
         timeout: 15000,
       });
+      this._extractCookies(response);
       const html = response.data;
-      
-      // Update cookies
-      const setCookie = response.headers['set-cookie'];
-      if (setCookie) {
-        const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
-        cookieArray.forEach(cookieStr => {
-          const parts = cookieStr.split(';')[0].split('=');
-          if (parts.length === 2) {
-            const existing = this.cookies.find(c => c.name === parts[0]);
-            if (existing) existing.value = parts[1];
-            else this.cookies.push({ name: parts[0], value: parts[1] });
-          }
-        });
-      }
-
-      // Cari CSRF di meta
       let match = html.match(/<meta name="csrf-token" content="([^"]+)"/);
       if (match && match[1]) {
         this.xsrfToken = match[1];
         return this.xsrfToken;
       }
-      // Cari di script
       match = html.match(/window\._csrf\s*=\s*"([^"]+)"/);
       if (match && match[1]) {
         this.xsrfToken = match[1];
@@ -62,7 +64,7 @@ class EmailnatorClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Cookie': this.cookies.map(c => `${c.name}=${c.value}`).join('; '),
+            'Cookie': this._getCookieString(),
             'X-XSRF-TOKEN': this.xsrfToken,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Referer': 'https://www.emailnator.com/',
@@ -71,24 +73,11 @@ class EmailnatorClient {
           timeout: 15000,
         }
       );
-      
-      const setCookie = response.headers['set-cookie'];
-      if (setCookie) {
-        const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
-        cookieArray.forEach(cookieStr => {
-          const parts = cookieStr.split(';')[0].split('=');
-          if (parts.length === 2) {
-            const existing = this.cookies.find(c => c.name === parts[0]);
-            if (existing) existing.value = parts[1];
-            else this.cookies.push({ name: parts[0], value: parts[1] });
-          }
-        });
-      }
-
+      this._extractCookies(response);
       const data = response.data;
       if (!data || !data.email) throw new Error('Response tidak valid');
       this.currentEmail = data.email;
-      return { email: data.email };
+      return { email: data.email, options };
     } catch (error) {
       throw new Error(`Emailnator gagal: ${error.message}`);
     }
@@ -104,7 +93,7 @@ class EmailnatorClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'Cookie': this.cookies.map(c => `${c.name}=${c.value}`).join('; '),
+            'Cookie': this._getCookieString(),
             'X-XSRF-TOKEN': this.xsrfToken,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Referer': 'https://www.emailnator.com/',
@@ -113,7 +102,7 @@ class EmailnatorClient {
           timeout: 15000,
         }
       );
-      
+      this._extractCookies(response);
       const data = response.data;
       let messages = [];
       if (Array.isArray(data.messageData)) messages = data.messageData;

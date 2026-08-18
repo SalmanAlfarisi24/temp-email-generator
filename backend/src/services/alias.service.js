@@ -96,10 +96,10 @@ class AliasService {
     const forwardTo = normalizeEmail(forwardToInput);
 
     if (!domain) {
-      throw makeStatusError('Domain wajib diisi', 400);
+      throw makeStatusError('Domain wajib diisi. Contoh: mail.kamu.com', 400);
     }
     if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
-      throw makeStatusError('Format domain tidak valid', 400);
+      throw makeStatusError('Domain tidak valid. Gunakan format seperti mail.kamu.com (hanya huruf kecil, angka, titik, dan dash)', 400);
     }
     if (!prefix) {
       throw makeStatusError('Prefix wajib diisi', 400);
