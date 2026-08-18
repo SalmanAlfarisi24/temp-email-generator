@@ -356,3 +356,9 @@ header h1 .sub {
   .actions { width: 100%; }
   .actions .btn { flex: 1; }
 }
+
+#domainSelect {
+  max-width: 300px;
+  width: 100%;
+  overflow-y: auto;
+}

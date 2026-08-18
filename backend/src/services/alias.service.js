@@ -5,6 +5,12 @@ const path = require('path');
 
 const isVercel = process.env.VERCEL === '1';
 const DATA_DIR = isVercel ? '/tmp' : path.join(__dirname, '../../data');
+
+// Pastikan folder data ada
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
 const DATA_FILE = path.join(DATA_DIR, 'aliases.json');
 
 // Penyimpanan alias lokal (persist ke file JSON sebagai mode simulasi tanpa ForwardEmail.net)

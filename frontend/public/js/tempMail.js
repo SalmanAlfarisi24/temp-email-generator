@@ -31,16 +31,18 @@ const tempMail = {
     populateDomainSelector() {
         const select = document.getElementById('domainSelect');
         select.innerHTML = '';
-        
+        // Tambahkan opsi default "Pilih domain..."
         const defaultOpt = document.createElement('option');
         defaultOpt.value = '';
         defaultOpt.textContent = '-- Pilih domain --';
         defaultOpt.disabled = true;
+        defaultOpt.selected = true;
         select.appendChild(defaultOpt);
 
         this.domainList.forEach(domain => {
             const opt = document.createElement('option');
             opt.value = domain;
+            // Tampilkan label yang lebih bersih
             let label = domain;
             if (domain.includes('(Emailnator)')) label = '📧 ' + domain;
             else if (domain.includes('sharklasers')) label = '🦈 ' + domain;
@@ -50,14 +52,12 @@ const tempMail = {
             select.appendChild(opt);
         });
 
-        // set default
+        // Jika ada domain yang tersimpan sebelumnya, set value
         if (this.currentDomain && this.domainList.includes(this.currentDomain)) {
             select.value = this.currentDomain;
         } else if (this.domainList.length) {
             this.currentDomain = this.domainList[0];
             select.value = this.currentDomain;
-        } else {
-            select.value = '';
         }
     },
 
@@ -142,7 +142,7 @@ const tempMail = {
         })
         .catch(err => {
             console.error('Generate error:', err);
-            alert('Gagal generate email: ' + err.message + '. Coba pilih domain lain.');
+            alert('❌ Gagal generate email: ' + err.message);
         })
         .finally(() => {
             btn.disabled = false;

@@ -75,101 +75,113 @@ class TempMailService {
   }
 
   async getDomains() {
-    const allDomains = new Set();
-    
-    // Inject Emailnator as the primary option
-    allDomains.add('gmail.com (Emailnator)');
+    const allDomains = [];
+    const errors = [];
 
+    // 1. 1secmail
     try {
-      const response = await axios.get(ONE_SEC_BASE_URL, {
-        params: { action: 'getDomainList' },
-        timeout: 10000,
-      });
+      const response = await axios.get('https://api.1secmail.com/v1/?action=getDomainList', { timeout: 8000 });
       if (Array.isArray(response.data) && response.data.length) {
-        response.data.forEach(d => allDomains.add(d));
+        allDomains.push(...response.data);
+      } else {
+        errors.push('1secmail: response kosong');
       }
     } catch (error) {
-      // silent fallback
+      errors.push(`1secmail: ${error.message}`);
     }
 
-    GUERRILLA_DOMAINS.forEach(d => allDomains.add(d));
+    // 2. Guerrilla Mail (static)
+    allDomains.push(...Array.from(GUERRILLA_DOMAINS));
 
-    return Array.from(allDomains);
+    // 3. Emailnator (selalu gmail.com)
+    allDomains.push('gmail.com (Emailnator)');
+
+    // Jika total domain kurang dari 3, tambahkan fallback
+    if (allDomains.length < 3) {
+      allDomains.push('temp-mail.org', 'mailinator.com');
+    }
+
+    console.log(`✅ Domain loaded: ${allDomains.length} domains. Errors: ${errors.join('; ')}`);
+    return allDomains;
   }
 
   async generateEmail(domainInput) {
     const domain = normalizeDomain(domainInput);
     const errors = [];
 
+    // Jika user secara eksplisit pilih Emailnator
     if (domainInput === 'gmail.com (Emailnator)' || domain === 'gmail.com') {
       try {
         const result = await this.emailnator.generateEmail(['plusGmail', 'dotGmail']);
         return { email: result.email, domain: 'gmail.com', provider: 'emailnator' };
       } catch (err) {
-        errors.push(`emailnator: ${err.message}`);
+        // Jangan lanjut ke fallback, langsung lempar error
+        throw makeStatusError(`Emailnator gagal: ${err.message}`, 502);
       }
     }
 
+    // Jika domain termasuk Guerrilla
     if (domain && GUERRILLA_DOMAINS.has(domain)) {
-      return this.generateGuerrillaEmail();
+      return this.generateGuerrillaEmail(domain);
     }
 
-    // 1secmail: ambil daftar domain, generate login lokal.
-    let oneSecDomains = [];
+    // Coba 1secmail
     try {
-      const response = await axios.get(ONE_SEC_BASE_URL, {
-        params: { action: 'getDomainList' },
-        timeout: 10000,
-      });
-      if (Array.isArray(response.data) && response.data.length) {
-        oneSecDomains = response.data;
-      }
+      const domainList = await this.getDomains(); // ambil ulang
+      const targetDomain = domainList.find(d => d === domain) || domainList[0];
+      const login = Math.random().toString(36).substring(2, 12);
+      return { email: `${login}@${targetDomain}`, domain: targetDomain, provider: '1secmail' };
     } catch (error) {
       errors.push(`1secmail: ${error.message}`);
     }
 
-    if (oneSecDomains.length) {
-      let targetDomain = domain;
-      if (!targetDomain || !oneSecDomains.includes(targetDomain)) {
-        targetDomain = oneSecDomains[0];
-      }
-      const login = Math.random().toString(36).substring(2, 12);
-      return {
-        email: `${login}@${targetDomain}`,
-        domain: targetDomain,
-        provider: '1secmail',
-      };
-    }
-
-    if (domain) {
-      throw makeStatusError(`Domain ${domain} tidak didukung provider temp mail`, 400);
-    }
-
-    // Guerrilla fallback ketika tidak ada domain spesifik.
+    // Fallback terakhir: Guerrilla
     try {
       return await this.generateGuerrillaEmail();
     } catch (error) {
       errors.push(`guerrilla: ${error.message}`);
     }
 
-    throw makeStatusError(`Gagal generate email (${errors.join('; ')})`, 502);
+    throw makeStatusError(`Semua provider gagal: ${errors.join('; ')}`, 502);
   }
 
-  async generateGuerrillaEmail() {
-    const response = await axios.get(GUERRILLA_BASE_URL, {
+  async generateGuerrillaEmail(requestedDomain) {
+    let response = await axios.get(GUERRILLA_BASE_URL, {
       params: { f: 'get_email_address' },
       timeout: 10000,
     });
-    const email = response.data?.email_addr;
-    if (!email) {
-      throw new Error('Guerrilla Mail tidak mengembalikan email_addr');
+    
+    let email = response.data?.email_addr;
+    let sidToken = response.data?.sid_token;
+    
+    if (!email || !sidToken) {
+      throw new Error('Guerrilla Mail tidak mengembalikan email_addr atau sid_token');
     }
+    
+    if (requestedDomain && GUERRILLA_DOMAINS.has(requestedDomain)) {
+      // Set domain spesifik
+      const [login] = email.split('@');
+      const setResponse = await axios.get(GUERRILLA_BASE_URL, {
+        params: { 
+          f: 'set_email_user',
+          email_user: login,
+          domain: requestedDomain,
+          sid_token: sidToken
+        },
+        timeout: 10000,
+      });
+      if (setResponse.data?.email_addr) {
+        email = setResponse.data.email_addr;
+        sidToken = setResponse.data.sid_token || sidToken;
+      }
+    }
+
     this.lastGuerrillaSession = {
       email: email.toLowerCase(),
-      sidToken: response.data.sid_token,
+      sidToken: sidToken,
     };
     const { domain } = splitEmail(email);
-    return { email, domain, provider: 'guerrilla', sidToken: response.data.sid_token };
+    return { email, domain, provider: 'guerrilla', sidToken: sidToken };
   }
 
   async getInbox(email) {
